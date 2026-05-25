@@ -1,73 +1,62 @@
-# React + TypeScript + Vite
+# Summer Strong
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**75 days. Body strong. Brain sharp.**
 
-Currently, two official plugins are available:
+Summer Strong is a 75-day accountability tracker inspired by 75 Hard and customized for Jessica's summer challenge.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Challenge Rules
 
-## React Compiler
+Daily:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 2 workouts per day, 45 minutes minimum each
+- At least 1 workout outside
+- 100g protein
+- 1 gallon / 128 oz water
+- No alcohol
+- 20 minutes coding/AI learning
 
-## Expanding the ESLint configuration
+Weekly:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Weekly weigh-in
+- Weekly progress photo checkbox/reminder only — no photo uploads
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## App Features
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Today dashboard with daily mission checklist
+- Protein tracker with breakfast/lunch/dinner + 3 snacks
+- Water quick-add tracker
+- Workout cards with indoor/outdoor validation
+- Coding/AI learning tracker
+- Weekly weigh-in and photo reminder
+- 75-day progress grid
+- Stats and badges
+- LocalStorage persistence
+- Backup JSON copy button
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech Stack
+
+- Vite
+- React
+- TypeScript
+- Tailwind CSS v4 plugin installed
+- Framer Motion
+- Recharts
+- Lucide React
+- LocalStorage
+
+## Development
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+## Notes
+
+MVP stores data locally in the browser. No login, backend, weight database, or photo storage yet.
