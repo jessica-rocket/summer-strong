@@ -120,9 +120,6 @@ function weekdayLabel(date: string) {
   return parseDate(date).toLocaleDateString(undefined, { weekday: 'short' })
 }
 
-function monthLabel(date: string) {
-  return parseDate(date).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-}
 
 function getChallengeDay(date = new Date()) {
   const start = parseDate(config.startDate)
@@ -210,30 +207,6 @@ function dayStatus(entry?: DailyEntry, dayNumber?: number) {
   if (completionPercent(entry) === 100) return 'complete'
   const hasAnyLog = proteinTotal(entry) > 0 || entry.waterOz > 0 || entry.noAlcohol || entry.learning.minutes > 0 || entry.workouts.some((w) => w.complete)
   return hasAnyLog ? 'partial' : 'missed'
-}
-
-function dayRingProgress(entry?: DailyEntry) {
-  if (!entry) return { workouts: 0, protein: 0, water: 0, learning: false, noAlcohol: false }
-  const statuses = taskStatus(entry)
-  return {
-    workouts: [statuses.workout1, statuses.workout2, statuses.outdoor].filter(Boolean).length / 3,
-    protein: Math.min(proteinTotal(entry) / config.proteinGoal, 1),
-    water: Math.min(entry.waterOz / config.waterGoalOz, 1),
-    learning: statuses.learning,
-    noAlcohol: statuses.noAlcohol,
-  }
-}
-
-function buildChallengeMonths() {
-  const months: Record<string, { label: string; dates: string[] }> = {}
-  Array.from({ length: config.totalDays }, (_, index) => {
-    const date = dateForDay(index + 1)
-    const parsed = parseDate(date)
-    const key = `${parsed.getFullYear()}-${parsed.getMonth()}`
-    months[key] ??= { label: monthLabel(date), dates: [] }
-    months[key].dates.push(date)
-  })
-  return Object.values(months)
 }
 
 function weekForDay(dayNumber: number) {
@@ -594,7 +567,6 @@ function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; s
   const selectedDay = Math.floor((parseDate(selectedDate).getTime() - parseDate(config.startDate).getTime()) / dayMs) + 1
   const selectedEntry = data.daily[selectedDate]
   const selectedStatus = dayStatus(selectedEntry, selectedDay)
-  const months = buildChallengeMonths()
 
   return (
     <section className="screen-stack">
@@ -603,47 +575,23 @@ function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; s
         <strong>Selected: Day {selectedDay}</strong>
         <span>{weekdayLabel(selectedDate)}, {shortDateLabel(selectedDate)} · {selectedStatus}</span>
       </Card>
-      <div className="fitness-calendar-card">
-        <div className="ring-legend">
-          <span><i className="pink" /> workouts/outside</span>
-          <span><i className="green" /> protein</span>
-          <span><i className="blue" /> water</span>
-          <span><i className="dot purple" /> learning</span>
-          <span><i className="dot gold" /> no alcohol</span>
-        </div>
-        {months.map((month) => (
-          <div className="calendar-month" key={month.label}>
-            <h3>{month.label}</h3>
-            <div className="weekday-row">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
-            </div>
-            <div className="calendar-grid">
-              {Array.from({ length: (parseDate(month.dates[0]).getDay() + 6) % 7 }).map((_, index) => <div key={`blank-${index}`} />)}
-              {month.dates.map((date) => {
-                const day = Math.floor((parseDate(date).getTime() - parseDate(config.startDate).getTime()) / dayMs) + 1
-                const status = dayStatus(data.daily[date], day)
-                const rings = dayRingProgress(data.daily[date])
-                return (
-                  <button
-                    key={date}
-                    className={`calendar-day ${status} ${date === selectedDate ? 'selected' : ''}`}
-                    onClick={() => onSelect(date)}
-                    title={`Day ${day} · ${weekdayLabel(date)}, ${shortDateLabel(date)}`}
-                    style={{
-                      '--workout-progress': `${rings.workouts * 360}deg`,
-                      '--protein-progress': `${rings.protein * 360}deg`,
-                      '--water-progress': `${rings.water * 360}deg`,
-                    } as React.CSSProperties}
-                  >
-                    <span className="calendar-date">{parseDate(date).getDate()}</span>
-                    <span className="rings" aria-hidden="true"><span><span /></span></span>
-                    <span className="mini-dots"><i className={rings.learning ? 'on purple' : 'purple'} /><i className={rings.noAlcohol ? 'on gold' : 'gold'} /></span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
+      <div className="grid-75">
+        {Array.from({ length: config.totalDays }, (_, index) => {
+          const day = index + 1
+          const date = dateForDay(day)
+          const status = dayStatus(data.daily[date], day)
+          return (
+            <button
+              key={date}
+              className={`day-cell ${status} ${date === selectedDate ? 'selected' : ''}`}
+              onClick={() => onSelect(date)}
+              title={`Day ${day} · ${weekdayLabel(date)}, ${shortDateLabel(date)}`}
+            >
+              <span className="day-number">Day {day}</span>
+              <span className="day-date">{shortDateLabel(date)}</span>
+            </button>
+          )
+        })}
       </div>
       <div className="legend"><span className="complete" /> Complete <span className="partial" /> Partial <span className="missed" /> Missed <span className="upcoming" /> Upcoming</div>
     </section>
