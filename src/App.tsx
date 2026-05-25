@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Camera, Check, Droplets, Dumbbell, Flame, HeartPulse, Laptop, Scale, Sparkles, Trophy } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CalendarDays, Camera, Check, Cloud, CloudOff, Droplets, Dumbbell, Flame, HeartPulse, Laptop, Scale, Sparkles, Trophy } from 'lucide-react'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import {
+  createSummerStrongAccount,
+  loadSummerStrongData,
+  saveSummerStrongData,
+  signInToSummerStrong,
+  signOutOfSummerStrong,
+  watchAuth,
+  type FirebaseUser,
+} from './firebase'
 import './App.css'
 
 type Tab = 'today' | 'progress' | 'weekly' | 'stats'
@@ -154,6 +163,18 @@ function loadData(): ChallengeData {
   }
 }
 
+function mergeChallengeData(cloudData: ChallengeData | null, localData: ChallengeData): ChallengeData {
+  if (!cloudData) return localData
+  return {
+    daily: { ...(cloudData.daily ?? {}), ...(localData.daily ?? {}) },
+    weekly: { ...(cloudData.weekly ?? {}), ...(localData.weekly ?? {}) },
+  }
+}
+
+function isChallengeData(value: unknown): value is ChallengeData {
+  return !!value && typeof value === 'object' && 'daily' in value && 'weekly' in value
+}
+
 function proteinTotal(entry: DailyEntry) {
   return entry.protein.reduce((sum, item) => sum + (Number(item.grams) || 0), 0)
 }
@@ -222,6 +243,10 @@ function weekForDay(dayNumber: number) {
 function App() {
   const [tab, setTab] = useState<Tab>('today')
   const [data, setData] = useState<ChallengeData>(() => loadData())
+  const [cloudUser, setCloudUser] = useState<FirebaseUser | null>(null)
+  const [cloudReady, setCloudReady] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('Local save active')
+  const localDataRef = useRef(data)
   const todayDay = Math.min(Math.max(getChallengeDay(), 1), config.totalDays)
   const rawChallengeDay = getChallengeDay()
   const todayDate = dateForDay(todayDay)
@@ -234,7 +259,48 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(data))
+    localDataRef.current = data
   }, [data])
+
+  useEffect(() => {
+    return watchAuth(async (user) => {
+      setCloudUser(user)
+      setCloudReady(false)
+      if (!user) {
+        setSyncStatus('Local save active')
+        return
+      }
+
+      setSyncStatus('Loading cloud backup…')
+      try {
+        const cloudData = await loadSummerStrongData(user.uid)
+        const merged = mergeChallengeData(isChallengeData(cloudData) ? cloudData : null, localDataRef.current)
+        setData(merged)
+        localStorage.setItem(storageKey, JSON.stringify(merged))
+        setCloudReady(true)
+        setSyncStatus(cloudData ? 'Cloud sync connected' : 'Cloud sync ready — first backup pending')
+      } catch (error) {
+        console.error(error)
+        setSyncStatus('Cloud load failed — still saving locally')
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!cloudUser || !cloudReady) return
+    const timeout = window.setTimeout(async () => {
+      setSyncStatus('Saving to cloud…')
+      try {
+        await saveSummerStrongData(cloudUser.uid, data)
+        setSyncStatus('Cloud sync saved')
+      } catch (error) {
+        console.error(error)
+        setSyncStatus('Cloud save failed — still saving locally')
+      }
+    }, 700)
+
+    return () => window.clearTimeout(timeout)
+  }, [data, cloudReady, cloudUser])
 
   const updateDaily = (date: string, updater: (entry: DailyEntry) => DailyEntry) => {
     setData((prev) => ({
@@ -300,6 +366,9 @@ function App() {
               updateDaily(selectedDate, () => defaultDailyEntry(selectedDate))
             }
           }}
+          cloudUser={cloudUser}
+          syncStatus={syncStatus}
+          onSyncStatus={setSyncStatus}
         />
       )}
 
@@ -328,7 +397,7 @@ function App() {
   )
 }
 
-function TodayPage({ date, dayNumber, entry, prompt, update, resetToday }: { date: string; dayNumber: number; entry: DailyEntry; prompt: string; update: (updater: (entry: DailyEntry) => DailyEntry) => void; resetToday: () => void }) {
+function TodayPage({ date, dayNumber, entry, prompt, update, resetToday, cloudUser, syncStatus, onSyncStatus }: { date: string; dayNumber: number; entry: DailyEntry; prompt: string; update: (updater: (entry: DailyEntry) => DailyEntry) => void; resetToday: () => void; cloudUser: FirebaseUser | null; syncStatus: string; onSyncStatus: (status: string) => void }) {
   const statuses = taskStatus(entry)
   return (
     <section className="screen-stack">
@@ -355,6 +424,8 @@ function TodayPage({ date, dayNumber, entry, prompt, update, resetToday }: { dat
           </div>
         ))}
       </Card>
+
+      <CloudSyncCard user={cloudUser} syncStatus={syncStatus} onSyncStatus={onSyncStatus} />
 
       <ProteinCard entry={entry} update={update} />
       <WaterCard entry={entry} update={update} />
@@ -402,6 +473,57 @@ function ProteinCard({ entry, update }: { entry: DailyEntry; update: (updater: (
           </div>
         ))}
       </div>
+    </Card>
+  )
+}
+
+function CloudSyncCard({ user, syncStatus, onSyncStatus }: { user: FirebaseUser | null; syncStatus: string; onSyncStatus: (status: string) => void }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (mode: 'sign-in' | 'create') => {
+    if (!email || !password) {
+      onSyncStatus('Enter email + password to turn on cloud sync')
+      return
+    }
+
+    setBusy(true)
+    onSyncStatus(mode === 'sign-in' ? 'Signing in…' : 'Creating sync account…')
+    try {
+      if (mode === 'sign-in') {
+        await signInToSummerStrong(email, password)
+      } else {
+        await createSummerStrongAccount(email, password)
+      }
+      setPassword('')
+    } catch (error) {
+      console.error(error)
+      onSyncStatus('Cloud sign-in failed — check email/password')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className={user ? 'sync-card connected' : 'sync-card'}>
+      <div className="card-heading">{user ? <Cloud /> : <CloudOff />} Cloud backup</div>
+      <p className="helper">{syncStatus}</p>
+      {user ? (
+        <div className="sync-row">
+          <span>Signed in as <strong>{user.email}</strong></span>
+          <button className="ghost" onClick={() => signOutOfSummerStrong()}>Sign out</button>
+        </div>
+      ) : (
+        <div className="sync-form">
+          <input type="email" autoComplete="email" placeholder="Email for sync" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <div className="quick-buttons big">
+            <button disabled={busy} onClick={() => submit('sign-in')}>Sign in</button>
+            <button disabled={busy} onClick={() => submit('create')}>Create sync account</button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

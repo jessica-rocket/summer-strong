@@ -163,6 +163,39 @@ h2 {
   font-size: 1.1rem;
 }
 
+.sync-card {
+  border-color: rgba(59, 130, 246, 0.26);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.92), rgba(255, 255, 255, 0.86));
+}
+
+.sync-card.connected {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.82), rgba(255, 255, 255, 0.9));
+}
+
+.sync-form,
+.sync-row {
+  display: grid;
+  gap: 10px;
+}
+
+.sync-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: #172554;
+  font-weight: 800;
+}
+
+.sync-form {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 1fr);
+  align-items: center;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
 .mission-card {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
@@ -671,7 +704,9 @@ textarea {
   }
 
   .protein-row,
-  .workout-grid {
+  .workout-grid,
+  .sync-form,
+  .sync-row {
     grid-template-columns: 1fr;
   }
 
