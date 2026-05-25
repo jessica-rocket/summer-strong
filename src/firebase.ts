@@ -1,8 +1,10 @@
 import { initializeApp } from 'firebase/app'
 import {
   createUserWithEmailAndPassword,
+  browserLocalPersistence,
   getAuth,
   onAuthStateChanged,
+  setPersistence,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -21,6 +23,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Unable to keep Summer Strong sign-in persisted', error)
+})
 export const db = getFirestore(app)
 export type FirebaseUser = User
 

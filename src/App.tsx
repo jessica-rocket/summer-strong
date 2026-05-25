@@ -362,6 +362,7 @@ function App() {
           entry={weeklyEntry}
           update={(updater) => updateWeekly(currentWeek, updater)}
           data={data}
+          syncStatus={syncStatus}
         />
       )}
 
@@ -598,13 +599,14 @@ function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; s
   )
 }
 
-function WeeklyPage({ weekNumber, entry, update, data }: { weekNumber: number; entry: WeeklyEntry; update: (updater: (entry: WeeklyEntry) => WeeklyEntry) => void; data: ChallengeData }) {
+function WeeklyPage({ weekNumber, entry, update, data, syncStatus }: { weekNumber: number; entry: WeeklyEntry; update: (updater: (entry: WeeklyEntry) => WeeklyEntry) => void; data: ChallengeData; syncStatus: string }) {
   const weekStats = buildWeekStats(data, weekNumber)
   return (
     <section className="screen-stack">
       <div className="section-title"><div><p className="eyebrow">Week {weekNumber}</p><h2>Weekly check-in</h2></div></div>
       <Card>
         <div className="card-heading"><Scale /> Weigh-in + photo reminder</div>
+        <p className="helper"><Check size={16} /> Auto-saves as you type · {syncStatus}</p>
         <label>Weight<input type="number" inputMode="decimal" placeholder="Optional weekly weight" value={entry.weight} onChange={(event) => update((draft) => ({ ...draft, weight: event.target.value }))} /></label>
         <label className="check-row"><input type="checkbox" checked={entry.photoTaken} onChange={(event) => update((draft) => ({ ...draft, photoTaken: event.target.checked }))} /><Camera size={18} /> I took my weekly progress photo</label>
       </Card>
