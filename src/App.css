@@ -355,13 +355,41 @@ textarea {
   gap: 8px;
 }
 
+.progress-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #172554;
+  font-weight: 850;
+}
+
+.progress-summary span {
+  color: #7c2d12;
+  text-transform: capitalize;
+}
+
 .day-cell {
-  aspect-ratio: 1;
+  min-height: 68px;
   border: 0;
   border-radius: 14px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 8px 4px;
   font-weight: 950;
   color: #172554;
   background: #f3f4f6;
+}
+
+.day-number {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.day-date {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .day-cell.complete,
@@ -505,5 +533,10 @@ textarea {
 
   .grid-75 {
     grid-template-columns: repeat(5, 1fr);
+  }
+
+  .progress-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

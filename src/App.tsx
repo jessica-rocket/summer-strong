@@ -102,6 +102,15 @@ function dateForDay(dayNumber: number) {
   return toDateOnly(start)
 }
 
+function shortDateLabel(date: string) {
+  const parsed = parseDate(date)
+  return `${parsed.getMonth() + 1}/${parsed.getDate()}`
+}
+
+function weekdayLabel(date: string) {
+  return parseDate(date).toLocaleDateString(undefined, { weekday: 'short' })
+}
+
 function getChallengeDay(date = new Date()) {
   const start = parseDate(config.startDate)
   const current = parseDate(toDateOnly(date))
@@ -432,15 +441,33 @@ function DailyCheckIn({ entry, update }: { entry: DailyEntry; update: (updater: 
 }
 
 function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; selectedDate: string; onSelect: (date: string) => void }) {
+  const selectedDay = Math.floor((parseDate(selectedDate).getTime() - parseDate(config.startDate).getTime()) / dayMs) + 1
+  const selectedEntry = data.daily[selectedDate]
+  const selectedStatus = dayStatus(selectedEntry, selectedDay)
+
   return (
     <section className="screen-stack">
       <div className="section-title"><div><p className="eyebrow">75-day grid</p><h2>Progress</h2></div></div>
+      <Card className="progress-summary">
+        <strong>Selected: Day {selectedDay}</strong>
+        <span>{weekdayLabel(selectedDate)}, {shortDateLabel(selectedDate)} · {selectedStatus}</span>
+      </Card>
       <div className="grid-75">
         {Array.from({ length: config.totalDays }, (_, index) => {
           const day = index + 1
           const date = dateForDay(day)
           const status = dayStatus(data.daily[date], day)
-          return <button key={date} className={`day-cell ${status} ${date === selectedDate ? 'selected' : ''}`} onClick={() => onSelect(date)}><span>{day}</span></button>
+          return (
+            <button
+              key={date}
+              className={`day-cell ${status} ${date === selectedDate ? 'selected' : ''}`}
+              onClick={() => onSelect(date)}
+              title={`Day ${day} · ${weekdayLabel(date)}, ${shortDateLabel(date)}`}
+            >
+              <span className="day-number">Day {day}</span>
+              <span className="day-date">{shortDateLabel(date)}</span>
+            </button>
+          )
         })}
       </div>
       <div className="legend"><span className="complete" /> Complete <span className="partial" /> Partial <span className="missed" /> Missed <span className="upcoming" /> Upcoming</div>
