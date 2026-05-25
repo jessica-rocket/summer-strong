@@ -240,6 +240,10 @@ h2 {
   gap: 10px;
 }
 
+.protein-row {
+  grid-template-columns: minmax(92px, 0.8fr) 96px minmax(220px, 1.4fr) minmax(180px, 1fr);
+}
+
 .protein-row label,
 .workout-grid label,
 .card > label {
@@ -270,6 +274,10 @@ textarea:focus {
 
 .protein-row input {
   width: 92px;
+}
+
+.protein-row .protein-note {
+  width: 100%;
 }
 
 .quick-buttons {
@@ -441,6 +449,11 @@ textarea {
   color: #92400e;
 }
 
+.chart-wrap {
+  height: 240px;
+  margin-top: 6px;
+}
+
 .export {
   width: 100%;
   padding: 14px;
@@ -485,7 +498,8 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .protein-row input {
+  .protein-row input,
+  .protein-row .protein-note {
     width: 100%;
   }
 

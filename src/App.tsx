@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Camera, Check, Droplets, Dumbbell, Flame, HeartPulse, Laptop, Scale, Sparkles, Trophy } from 'lucide-react'
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import './App.css'
 
 type Tab = 'today' | 'progress' | 'weekly' | 'stats'
@@ -185,6 +186,7 @@ function App() {
   const [tab, setTab] = useState<Tab>('today')
   const [data, setData] = useState<ChallengeData>(() => loadData())
   const todayDay = Math.min(Math.max(getChallengeDay(), 1), config.totalDays)
+  const rawChallengeDay = getChallengeDay()
   const todayDate = dateForDay(todayDay)
   const [selectedDate, setSelectedDate] = useState(todayDate)
   const currentEntry = data.daily[selectedDate] ?? defaultDailyEntry(selectedDate)
@@ -220,6 +222,7 @@ function App() {
   const stats = useMemo(() => buildStats(data), [data])
   const percent = completionPercent(currentEntry)
   const isViewingToday = selectedDate === todayDate
+  const heroDayLabel = rawChallengeDay < 1 ? 'Starts tomorrow · Day 1 is ready' : rawChallengeDay > config.totalDays ? 'Challenge complete' : `Day ${todayDay} of ${config.totalDays}`
 
   return (
     <main className="app-shell">
@@ -227,7 +230,7 @@ function App() {
         <div>
           <p className="eyebrow"><Sparkles size={16} /> Summer Strong</p>
           <h1>{config.tagline}</h1>
-          <p className="hero-copy">Day {todayDay} of {config.totalDays} · Ends Friday, August 7</p>
+          <p className="hero-copy">{heroDayLabel} · Ends Friday, August 7</p>
         </div>
         <div className="progress-orb" aria-label={`${percent}% complete`}>
           <span>{percent}%</span>
@@ -255,7 +258,11 @@ function App() {
           entry={currentEntry}
           prompt={prompt}
           update={(updater) => updateDaily(selectedDate, updater)}
-          resetToday={() => updateDaily(selectedDate, () => defaultDailyEntry(selectedDate))}
+          resetToday={() => {
+            if (window.confirm('Reset this day? This clears the logs for the selected date.')) {
+              updateDaily(selectedDate, () => defaultDailyEntry(selectedDate))
+            }
+          }}
         />
       )}
 
@@ -352,8 +359,9 @@ function ProteinCard({ entry, update }: { entry: DailyEntry; update: (updater: (
             <label>{proteinSlots.find((slot) => slot.slot === item.slot)?.label}</label>
             <input type="number" min="0" value={item.grams || ''} placeholder="0g" onChange={(event) => setSlot(item.slot, { grams: Number(event.target.value) })} />
             <div className="quick-buttons">
-              {[10, 20, 30].map((amount) => <button key={amount} onClick={() => setSlot(item.slot, { grams: (Number(item.grams) || 0) + amount })}>+{amount}</button>)}
+              {[10, 15, 20, 25, 30].map((amount) => <button key={amount} onClick={() => setSlot(item.slot, { grams: (Number(item.grams) || 0) + amount })}>+{amount}</button>)}
             </div>
+            <input className="protein-note" value={item.note} placeholder="optional food note" onChange={(event) => setSlot(item.slot, { note: event.target.value })} />
           </div>
         ))}
       </div>
@@ -484,8 +492,36 @@ function StatsPage({ stats, data }: { stats: Record<string, string | number>; da
         <div className="card-heading"><Trophy /> Badges</div>
         <div className="badge-grid">{badges.map(([label, earned]) => <div key={label} className={earned ? 'badge earned' : 'badge'}>{earned ? '🏆' : '🔒'} {label}</div>)}</div>
       </Card>
+      <WeightChart data={data} />
       <button className="export" onClick={() => navigator.clipboard.writeText(JSON.stringify(data, null, 2))}>Copy backup JSON</button>
     </section>
+  )
+}
+
+function WeightChart({ data }: { data: ChallengeData }) {
+  const points = Object.values(data.weekly)
+    .filter((entry) => entry.weight)
+    .sort((a, b) => a.weekNumber - b.weekNumber)
+    .map((entry) => ({ week: `W${entry.weekNumber}`, weight: Number(entry.weight) }))
+
+  return (
+    <Card>
+      <div className="card-heading"><Scale /> Weekly weight trend</div>
+      {points.length ? (
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={points} margin={{ top: 10, right: 12, bottom: 0, left: -18 }}>
+              <XAxis dataKey="week" tickLine={false} axisLine={false} />
+              <YAxis domain={['dataMin - 2', 'dataMax + 2']} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="weight" stroke="#ec4899" strokeWidth={4} dot={{ r: 5, fill: '#fb923c' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="helper">No weigh-ins yet. Future you will enjoy the trend line. Present you may roll her eyes, which is fair.</p>
+      )}
+    </Card>
   )
 }
 
@@ -497,6 +533,7 @@ function buildStats(data: ChallengeData) {
   const learningMinutes = entries.reduce((sum, entry) => sum + entry.learning.minutes, 0)
   return {
     'Perfect days': perfectDays,
+    'Current streak': currentStreak(data),
     'Protein days': proteinDays,
     'Water days': waterDays,
     'Total workouts': entries.reduce((sum, entry) => sum + workoutsComplete(entry), 0),
@@ -505,6 +542,17 @@ function buildStats(data: ChallengeData) {
     'No alcohol days': entries.filter((entry) => entry.noAlcohol).length,
     'Weekly weigh-ins': Object.values(data.weekly).filter((entry) => entry.weight).length,
   }
+}
+
+function currentStreak(data: ChallengeData) {
+  let streak = 0
+  const lastDay = Math.min(Math.max(getChallengeDay(), 1), config.totalDays)
+  for (let day = lastDay; day >= 1; day -= 1) {
+    const entry = data.daily[dateForDay(day)]
+    if (!entry || completionPercent(entry) !== 100) break
+    streak += 1
+  }
+  return streak
 }
 
 function buildWeekStats(data: ChallengeData, weekNumber: number) {
