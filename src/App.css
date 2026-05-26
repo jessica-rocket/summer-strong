@@ -24,10 +24,10 @@ button {
 }
 
 .hero-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 22px;
+  gap: 24px;
   padding: 28px;
   border-radius: 32px;
   background:
@@ -522,20 +522,44 @@ textarea {
   background: #172554;
 }
 
+@media (max-width: 860px) {
+  .hero-card {
+    align-items: end;
+    gap: 18px;
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: clamp(2.35rem, 9vw, 4.2rem);
+    line-height: 0.98;
+  }
+
+  .progress-orb {
+    width: 118px;
+    height: 118px;
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell {
     padding-inline: 12px;
   }
 
   .hero-card {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 22px;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 20px;
   }
 
   .progress-orb {
-    width: 112px;
-    height: 112px;
+    justify-self: start;
+    width: 108px;
+    height: 108px;
+    border-width: 8px;
+  }
+
+  .progress-orb span {
+    font-size: 2rem;
   }
 
   .tabs {
