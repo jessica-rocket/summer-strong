@@ -31,6 +31,13 @@ type ProteinEntry = {
   note: string
 }
 
+type ProteinFavorite = {
+  name: string
+  serving: string
+  protein: number
+  proteinPer100g?: number
+}
+
 type LearningEntry = {
   minutes: number
   type: string
@@ -82,6 +89,24 @@ const proteinSlots: { slot: ProteinSlot; label: string }[] = [
   { slot: 'snack1', label: 'Snack 1' },
   { slot: 'snack2', label: 'Snack 2' },
   { slot: 'snack3', label: 'Snack 3' },
+]
+
+const proteinFavorites: ProteinFavorite[] = [
+  { name: 'Protein shake', serving: '1 shake', protein: 30 },
+  { name: 'Greek yogurt', serving: '1 cup', protein: 20 },
+  { name: 'Chicken breast', serving: '3 oz', protein: 26 },
+  { name: 'Cooked shrimp', serving: '100g', protein: 24, proteinPer100g: 24 },
+  { name: 'Eggs', serving: '2 eggs', protein: 12 },
+  { name: 'Protein bar', serving: '1 bar', protein: 20 },
+  { name: 'Tuna packet', serving: '1 packet', protein: 17 },
+  { name: 'Cottage cheese', serving: '½ cup', protein: 14 },
+]
+
+const portionOptions = [
+  { label: '½', multiplier: 0.5 },
+  { label: '1x', multiplier: 1 },
+  { label: '1.5x', multiplier: 1.5 },
+  { label: '2x', multiplier: 2 },
 ]
 
 const learningPrompts = [
@@ -177,6 +202,21 @@ function isChallengeData(value: unknown): value is ChallengeData {
 
 function proteinTotal(entry: DailyEntry) {
   return entry.protein.reduce((sum, item) => sum + (Number(item.grams) || 0), 0)
+}
+
+function recentProteinFoods(data: ChallengeData) {
+  const seen = new Map<string, { name: string; protein: number }>()
+  Object.values(data.daily)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .flatMap((entry) => entry.protein)
+    .forEach((item) => {
+      const name = item.note.trim()
+      const protein = Number(item.grams) || 0
+      if (name && protein > 0 && !seen.has(name.toLowerCase())) {
+        seen.set(name.toLowerCase(), { name, protein })
+      }
+    })
+  return Array.from(seen.values()).slice(0, 6)
 }
 
 function workoutsComplete(entry: DailyEntry) {
@@ -335,6 +375,7 @@ function App() {
           date={selectedDate}
           dayNumber={selectedDay}
           entry={currentEntry}
+          data={data}
           prompt={prompt}
           update={(updater) => updateDaily(selectedDate, updater)}
           resetToday={() => {
@@ -374,7 +415,7 @@ function App() {
   )
 }
 
-function TodayPage({ date, dayNumber, entry, prompt, update, resetToday, cloudUser, syncStatus, onSyncStatus }: { date: string; dayNumber: number; entry: DailyEntry; prompt: string; update: (updater: (entry: DailyEntry) => DailyEntry) => void; resetToday: () => void; cloudUser: FirebaseUser | null; syncStatus: string; onSyncStatus: (status: string) => void }) {
+function TodayPage({ date, dayNumber, entry, data, prompt, update, resetToday, cloudUser, syncStatus, onSyncStatus }: { date: string; dayNumber: number; entry: DailyEntry; data: ChallengeData; prompt: string; update: (updater: (entry: DailyEntry) => DailyEntry) => void; resetToday: () => void; cloudUser: FirebaseUser | null; syncStatus: string; onSyncStatus: (status: string) => void }) {
   const statuses = taskStatus(entry)
   return (
     <section className="screen-stack">
@@ -404,7 +445,7 @@ function TodayPage({ date, dayNumber, entry, prompt, update, resetToday, cloudUs
 
       <CloudSyncCard user={cloudUser} syncStatus={syncStatus} onSyncStatus={onSyncStatus} />
 
-      <ProteinCard entry={entry} update={update} />
+      <ProteinCard entry={entry} data={data} update={update} />
       <WaterCard entry={entry} update={update} />
       <WorkoutCard index={0} entry={entry} update={update} />
       <WorkoutCard index={1} entry={entry} update={update} />
@@ -421,10 +462,13 @@ function TodayPage({ date, dayNumber, entry, prompt, update, resetToday, cloudUs
   )
 }
 
-function ProteinCard({ entry, update }: { entry: DailyEntry; update: (updater: (entry: DailyEntry) => DailyEntry) => void }) {
+function ProteinCard({ entry, data, update }: { entry: DailyEntry; data: ChallengeData; update: (updater: (entry: DailyEntry) => DailyEntry) => void }) {
   const total = proteinTotal(entry)
   const remaining = Math.max(config.proteinGoal - total, 0)
   const message = total >= 100 ? 'Protein goal handled.' : total >= 80 ? 'So close. One snack can finish this.' : total >= 50 ? 'Halfway there. Respectable.' : 'Let’s get protein on the board.'
+  const recents = useMemo(() => recentProteinFoods(data), [data])
+  const [selectedSlot, setSelectedSlot] = useState<ProteinSlot>('breakfast')
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
 
   const setSlot = (slot: ProteinSlot, patch: Partial<ProteinEntry>) => {
     update((draft) => ({
@@ -433,22 +477,98 @@ function ProteinCard({ entry, update }: { entry: DailyEntry; update: (updater: (
     }))
   }
 
+  const addProtein = (grams: number, note: string) => {
+    const rounded = Math.max(Math.round(grams), 0)
+    if (!rounded) return
+    update((draft) => ({
+      ...draft,
+      protein: draft.protein.map((item) => {
+        if (item.slot !== selectedSlot) return item
+        const notes = item.note.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
+        const nextNote = notes.includes(note.toLowerCase()) ? item.note : item.note ? `${item.note}, ${note}` : note
+        return { ...item, grams: (Number(item.grams) || 0) + rounded, note: nextNote }
+      }),
+    }))
+  }
+
+  const selectedSlotLabel = proteinSlots.find((slot) => slot.slot === selectedSlot)?.label
+
   return (
     <Card>
       <div className="card-heading"><Flame /> Protein</div>
       <ProgressLine value={total} goal={config.proteinGoal} label={`${total} / 100g`} />
       <p className="helper">{remaining}g left · {message}</p>
-      <div className="protein-grid">
-        {entry.protein.map((item) => (
-          <div className="protein-row" key={item.slot}>
-            <label>{proteinSlots.find((slot) => slot.slot === item.slot)?.label}</label>
-            <input type="number" min="0" value={item.grams || ''} placeholder="0g" onChange={(event) => setSlot(item.slot, { grams: Number(event.target.value) })} />
-            <div className="quick-buttons">
-              {[10, 15, 20, 25, 30].map((amount) => <button key={amount} onClick={() => setSlot(item.slot, { grams: (Number(item.grams) || 0) + amount })}>+{amount}</button>)}
-            </div>
-            <input className="protein-note" value={item.note} placeholder="optional food note" onChange={(event) => setSlot(item.slot, { note: event.target.value })} />
+
+      <div className="protein-toolbar">
+        <label>Log to
+          <select value={selectedSlot} onChange={(event) => setSelectedSlot(event.target.value as ProteinSlot)}>
+            {proteinSlots.map((slot) => <option key={slot.slot} value={slot.slot}>{slot.label}</option>)}
+          </select>
+        </label>
+        <div>
+          <p className="mini-label">Quick grams</p>
+          <div className="quick-buttons">
+            {[10, 15, 20, 25, 30].map((amount) => <button key={amount} onClick={() => addProtein(amount, `${amount}g protein`)}>+{amount}g</button>)}
           </div>
-        ))}
+        </div>
+      </div>
+
+      <div className="protein-section">
+        <p className="mini-label">Favorites · adding to {selectedSlotLabel}</p>
+        <div className="favorite-grid">
+          {proteinFavorites.map((favorite) => {
+            const customAmount = customAmounts[favorite.name] ?? ''
+            const customProtein = favorite.proteinPer100g && Number(customAmount) > 0 ? (Number(customAmount) * favorite.proteinPer100g) / 100 : 0
+            return (
+              <div className="favorite-card" key={favorite.name}>
+                <strong>{favorite.name}</strong>
+                <span>{favorite.serving} ≈ {favorite.protein}g protein</span>
+                <div className="quick-buttons compact">
+                  {portionOptions.map((portion) => (
+                    <button key={portion.label} onClick={() => addProtein(favorite.protein * portion.multiplier, `${portion.label} ${favorite.name}`)}>
+                      {portion.label} · +{Math.round(favorite.protein * portion.multiplier)}g
+                    </button>
+                  ))}
+                </div>
+                {favorite.proteinPer100g && (
+                  <div className="custom-portion">
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      placeholder="grams eaten"
+                      value={customAmount}
+                      onChange={(event) => setCustomAmounts((prev) => ({ ...prev, [favorite.name]: event.target.value }))}
+                    />
+                    <button onClick={() => addProtein(customProtein, `${customAmount}g ${favorite.name}`)}>Add {Math.round(customProtein)}g</button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {recents.length > 0 && (
+        <div className="protein-section">
+          <p className="mini-label">Recent foods</p>
+          <div className="quick-buttons recent-foods">
+            {recents.map((recent) => <button key={recent.name} onClick={() => addProtein(recent.protein, recent.name)}>{recent.name} +{recent.protein}g</button>)}
+          </div>
+        </div>
+      )}
+
+      <div className="protein-section">
+        <p className="mini-label">Today’s protein by meal</p>
+        <div className="protein-grid">
+          {entry.protein.map((item) => (
+            <div className="protein-row" key={item.slot}>
+              <label>{proteinSlots.find((slot) => slot.slot === item.slot)?.label}</label>
+              <input type="number" min="0" value={item.grams || ''} placeholder="0g" onChange={(event) => setSlot(item.slot, { grams: Number(event.target.value) })} />
+              <input className="protein-note" value={item.note} placeholder="food notes" onChange={(event) => setSlot(item.slot, { note: event.target.value })} />
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   )

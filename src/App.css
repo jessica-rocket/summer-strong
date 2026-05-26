@@ -265,6 +265,77 @@ button:disabled {
   gap: 10px;
 }
 
+.protein-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) 1fr;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.protein-toolbar label {
+  display: grid;
+  gap: 6px;
+  color: #172554;
+  font-weight: 850;
+}
+
+.protein-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.mini-label {
+  color: #9a3412;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.favorite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.favorite-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  background: #fff7ed;
+}
+
+.favorite-card strong {
+  color: #172554;
+  font-weight: 950;
+}
+
+.favorite-card span {
+  color: #7c2d12;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.quick-buttons.compact {
+  gap: 6px;
+}
+
+.quick-buttons.compact button,
+.recent-foods button {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+}
+
+.custom-portion {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
 .protein-row,
 .workout-grid {
   display: grid;
@@ -274,7 +345,7 @@ button:disabled {
 }
 
 .protein-row {
-  grid-template-columns: minmax(92px, 0.8fr) 96px minmax(220px, 1.4fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(92px, 0.8fr) 96px minmax(220px, 1.4fr);
 }
 
 .protein-row label,
@@ -579,6 +650,8 @@ textarea {
   }
 
   .protein-row,
+  .protein-toolbar,
+  .custom-portion,
   .workout-grid,
   .sync-form,
   .sync-row {
