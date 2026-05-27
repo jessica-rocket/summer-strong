@@ -75,26 +75,36 @@ h2 {
 }
 
 .progress-orb {
-  display: grid;
-  place-items: center;
+  display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 136px;
   height: 136px;
   border-radius: 999px;
   border: 10px solid rgba(255, 255, 255, 0.42);
   background: rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(12px);
+  text-align: center;
 }
 
 .progress-orb span {
   display: block;
+  width: 100%;
   font-size: 2.35rem;
   font-weight: 950;
-  line-height: 1;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-orb small {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
   font-weight: 800;
+  line-height: 1;
   opacity: 0.84;
 }
 
