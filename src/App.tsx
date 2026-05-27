@@ -102,13 +102,6 @@ const proteinFavorites: ProteinFavorite[] = [
   { name: 'Cottage cheese', serving: '½ cup', protein: 14 },
 ]
 
-const portionOptions = [
-  { label: '½', multiplier: 0.5 },
-  { label: '1x', multiplier: 1 },
-  { label: '1.5x', multiplier: 1.5 },
-  { label: '2x', multiplier: 2 },
-]
-
 const learningPrompts = [
   'Build one tiny thing.',
   'Watch or read 20 minutes about coding/AI.',
@@ -465,111 +458,146 @@ function TodayPage({ date, dayNumber, entry, data, prompt, update, resetToday, c
 function ProteinCard({ entry, data, update }: { entry: DailyEntry; data: ChallengeData; update: (updater: (entry: DailyEntry) => DailyEntry) => void }) {
   const total = proteinTotal(entry)
   const remaining = Math.max(config.proteinGoal - total, 0)
-  const message = total >= 100 ? 'Protein goal handled.' : total >= 80 ? 'So close. One snack can finish this.' : total >= 50 ? 'Halfway there. Respectable.' : 'Let’s get protein on the board.'
+  const percent = Math.min(Math.round((total / config.proteinGoal) * 100), 100)
+  const message = total >= 100 ? 'Goal hit. Muscles fed.' : total >= 80 ? 'So close. One snack can finish this.' : total >= 50 ? 'Halfway there. Respectable.' : 'Let’s get protein on the board.'
   const recents = useMemo(() => recentProteinFoods(data), [data])
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [mode, setMode] = useState<'add' | 'set'>('add')
   const [selectedSlot, setSelectedSlot] = useState<ProteinSlot>('breakfast')
-  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
+  const [gramsInput, setGramsInput] = useState('')
+  const [noteInput, setNoteInput] = useState('')
+  const [lastAdded, setLastAdded] = useState('')
 
-  const setSlot = (slot: ProteinSlot, patch: Partial<ProteinEntry>) => {
-    update((draft) => ({
-      ...draft,
-      protein: draft.protein.map((item) => item.slot === slot ? { ...item, ...patch } : item),
-    }))
-  }
-
-  const addProtein = (grams: number, note: string) => {
+  const applyProtein = (grams: number, slot: ProteinSlot, note: string, proteinMode: 'add' | 'set' = mode) => {
     const rounded = Math.max(Math.round(grams), 0)
-    if (!rounded) return
+    if (!rounded && proteinMode === 'add') return
+
     update((draft) => ({
       ...draft,
       protein: draft.protein.map((item) => {
-        if (item.slot !== selectedSlot) return item
-        const notes = item.note.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
-        const nextNote = notes.includes(note.toLowerCase()) ? item.note : item.note ? `${item.note}, ${note}` : note
-        return { ...item, grams: (Number(item.grams) || 0) + rounded, note: nextNote }
+        if (item.slot !== slot) return item
+        const nextNote = note.trim()
+        const existingNotes = item.note.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
+        const mergedNote = nextNote && !existingNotes.includes(nextNote.toLowerCase())
+          ? item.note ? `${item.note}, ${nextNote}` : nextNote
+          : item.note
+        return {
+          ...item,
+          grams: proteinMode === 'set' ? rounded : (Number(item.grams) || 0) + rounded,
+          note: mergedNote,
+        }
       }),
     }))
+
+    const slotLabel = proteinSlots.find((slotOption) => slotOption.slot === slot)?.label ?? 'Protein'
+    setLastAdded(proteinMode === 'set' ? `${slotLabel} set to ${rounded}g` : `+${rounded}g ${slotLabel} added`)
+    setGramsInput('')
+    setNoteInput('')
+    setSheetOpen(false)
   }
 
-  const selectedSlotLabel = proteinSlots.find((slot) => slot.slot === selectedSlot)?.label
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    applyProtein(Number(gramsInput), selectedSlot, noteInput)
+  }
 
   return (
-    <Card>
-      <div className="card-heading"><Flame /> Protein</div>
-      <ProgressLine value={total} goal={config.proteinGoal} label={`${total} / 100g`} />
-      <p className="helper">{remaining}g left · {message}</p>
-
-      <div className="protein-toolbar">
-        <label>Log to
-          <select value={selectedSlot} onChange={(event) => setSelectedSlot(event.target.value as ProteinSlot)}>
-            {proteinSlots.map((slot) => <option key={slot.slot} value={slot.slot}>{slot.label}</option>)}
-          </select>
-        </label>
+    <Card className={total >= config.proteinGoal ? 'protein-card complete' : 'protein-card'}>
+      <div className="protein-card-top">
         <div>
-          <p className="mini-label">Quick grams</p>
-          <div className="quick-buttons">
-            {[10, 15, 20, 25, 30].map((amount) => <button key={amount} onClick={() => addProtein(amount, `${amount}g protein`)}>+{amount}g</button>)}
-          </div>
+          <div className="card-heading"><Flame /> Protein</div>
+          <p className="protein-total"><strong>{total}g</strong> / {config.proteinGoal}g</p>
         </div>
+        <button className="log-button" onClick={() => setSheetOpen(true)}>Log</button>
       </div>
 
-      <div className="protein-section">
-        <p className="mini-label">Favorites · adding to {selectedSlotLabel}</p>
-        <div className="favorite-grid">
-          {proteinFavorites.map((favorite) => {
-            const customAmount = customAmounts[favorite.name] ?? ''
-            const customProtein = favorite.proteinPer100g && Number(customAmount) > 0 ? (Number(customAmount) * favorite.proteinPer100g) / 100 : 0
-            return (
-              <div className="favorite-card" key={favorite.name}>
-                <strong>{favorite.name}</strong>
-                <span>{favorite.serving} ≈ {favorite.protein}g protein</span>
-                <div className="quick-buttons compact">
-                  {portionOptions.map((portion) => (
-                    <button key={portion.label} onClick={() => addProtein(favorite.protein * portion.multiplier, `${portion.label} ${favorite.name}`)}>
-                      {portion.label} · +{Math.round(favorite.protein * portion.multiplier)}g
+      <ProgressLine value={total} goal={config.proteinGoal} label={`${percent}%`} />
+      <p className="helper">{remaining ? `${remaining}g left · ${message}` : message}</p>
+      {lastAdded && <p className="protein-confirmation">{lastAdded}</p>}
+
+      {sheetOpen && (
+        <div className="sheet-backdrop" role="presentation" onClick={() => setSheetOpen(false)}>
+          <div className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="protein-sheet-title" onClick={(event) => event.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-title-row">
+              <div>
+                <p className="mini-label">Protein log</p>
+                <h3 id="protein-sheet-title">Add protein</h3>
+              </div>
+              <button className="sheet-close" aria-label="Close protein logger" onClick={() => setSheetOpen(false)}>×</button>
+            </div>
+
+            <div className="toggle-pair protein-mode-toggle">
+              <button className={mode === 'add' ? 'selected' : ''} onClick={() => setMode('add')}>Add to total</button>
+              <button className={mode === 'set' ? 'selected' : ''} onClick={() => setMode('set')}>Set meal total</button>
+            </div>
+
+            <form className="protein-log-form" onSubmit={handleSubmit}>
+              <label>
+                How many grams?
+                <div className="grams-input-wrap">
+                  <input
+                    autoFocus
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                    placeholder="25"
+                    value={gramsInput}
+                    onChange={(event) => setGramsInput(event.target.value)}
+                  />
+                  <span>g</span>
+                </div>
+              </label>
+
+              <label>
+                Meal
+                <div className="meal-chip-grid">
+                  {proteinSlots.map((slot) => (
+                    <button
+                      type="button"
+                      key={slot.slot}
+                      className={selectedSlot === slot.slot ? 'selected' : ''}
+                      onClick={() => setSelectedSlot(slot.slot)}
+                    >
+                      {slot.label}
                     </button>
                   ))}
                 </div>
-                {favorite.proteinPer100g && (
-                  <div className="custom-portion">
-                    <input
-                      type="number"
-                      min="0"
-                      inputMode="decimal"
-                      placeholder="grams eaten"
-                      value={customAmount}
-                      onChange={(event) => setCustomAmounts((prev) => ({ ...prev, [favorite.name]: event.target.value }))}
-                    />
-                    <button onClick={() => addProtein(customProtein, `${customAmount}g ${favorite.name}`)}>Add {Math.round(customProtein)}g</button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+              </label>
 
-      {recents.length > 0 && (
-        <div className="protein-section">
-          <p className="mini-label">Recent foods</p>
-          <div className="quick-buttons recent-foods">
-            {recents.map((recent) => <button key={recent.name} onClick={() => addProtein(recent.protein, recent.name)}>{recent.name} +{recent.protein}g</button>)}
+              <label>
+                Optional note
+                <input value={noteInput} placeholder="chicken, shake, yogurt…" onChange={(event) => setNoteInput(event.target.value)} />
+              </label>
+
+              <div className="sheet-actions">
+                <button type="button" className="ghost" onClick={() => setSheetOpen(false)}>Cancel</button>
+                <button type="submit" className="primary-action">{mode === 'set' ? 'Save' : 'Add'}</button>
+              </div>
+            </form>
+
+            <div className="protein-shortcuts">
+              <p className="mini-label">Fast adds</p>
+              <div className="quick-buttons compact">
+                {[10, 15, 20, 25, 30].map((amount) => (
+                  <button key={amount} onClick={() => applyProtein(amount, selectedSlot, `${amount}g protein`, 'add')}>+{amount}g</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="protein-shortcuts">
+              <p className="mini-label">Common picks</p>
+              <div className="quick-buttons compact">
+                {[...proteinFavorites.slice(0, 6), ...recents].slice(0, 8).map((food) => (
+                  <button key={`${food.name}-${food.protein}`} onClick={() => applyProtein(food.protein, selectedSlot, food.name, 'add')}>
+                    {food.name} +{food.protein}g
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
-
-      <div className="protein-section">
-        <p className="mini-label">Today’s protein by meal</p>
-        <div className="protein-grid">
-          {entry.protein.map((item) => (
-            <div className="protein-row" key={item.slot}>
-              <label>{proteinSlots.find((slot) => slot.slot === item.slot)?.label}</label>
-              <input type="number" min="0" value={item.grams || ''} placeholder="0g" onChange={(event) => setSlot(item.slot, { grams: Number(event.target.value) })} />
-              <input className="protein-note" value={item.note} placeholder="food notes" onChange={(event) => setSlot(item.slot, { note: event.target.value })} />
-            </div>
-          ))}
-        </div>
-      </div>
     </Card>
   )
 }
