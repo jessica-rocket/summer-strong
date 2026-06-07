@@ -76,11 +76,14 @@ const config = {
   tagline: '75 days. Body strong. Brain sharp.',
   startDate: '2026-05-25',
   totalDays: 75,
+  makeUpDays: [10, 11, 12, 13, 14],
   proteinGoal: 100,
   waterGoalOz: 128,
   workoutMinutesGoal: 45,
   learningMinutesGoal: 20,
 }
+
+const calendarDays = config.totalDays + config.makeUpDays.length
 
 const proteinSlots: { slot: ProteinSlot; label: string }[] = [
   { slot: 'breakfast', label: 'Breakfast' },
@@ -130,6 +133,14 @@ function dateForDay(dayNumber: number) {
   const start = parseDate(config.startDate)
   start.setDate(start.getDate() + dayNumber - 1)
   return toDateOnly(start)
+}
+
+function challengeEndLabel() {
+  return parseDate(dateForDay(calendarDays)).toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 function shortDateLabel(date: string) {
@@ -256,7 +267,7 @@ function App() {
   const [cloudReady, setCloudReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('Local save active')
   const localDataRef = useRef(data)
-  const todayDay = Math.min(Math.max(getChallengeDay(), 1), config.totalDays)
+  const todayDay = Math.min(Math.max(getChallengeDay(), 1), calendarDays)
   const rawChallengeDay = getChallengeDay()
   const todayDate = dateForDay(todayDay)
   const [selectedDate, setSelectedDate] = useState(todayDate)
@@ -334,7 +345,13 @@ function App() {
   const stats = useMemo(() => buildStats(data), [data])
   const percent = completionPercent(currentEntry)
   const isViewingToday = selectedDate === todayDate
-  const heroDayLabel = rawChallengeDay < 1 ? 'Starts tomorrow · Day 1 is ready' : rawChallengeDay > config.totalDays ? 'Challenge complete' : `Day ${todayDay} of ${config.totalDays}`
+  const heroDayLabel = rawChallengeDay < 1
+    ? 'Starts tomorrow · Day 1 is ready'
+    : rawChallengeDay > calendarDays
+      ? 'Challenge complete'
+      : rawChallengeDay > config.totalDays
+        ? `Make-up day ${rawChallengeDay - config.totalDays} of ${config.makeUpDays.length}`
+        : `Day ${todayDay} of ${config.totalDays}`
 
   return (
     <main className="app-shell">
@@ -342,7 +359,7 @@ function App() {
         <div>
           <p className="eyebrow"><Sparkles size={16} /> Summer Strong</p>
           <h1>{config.tagline}</h1>
-          <p className="hero-copy">{heroDayLabel} · Ends Friday, August 7</p>
+          <p className="hero-copy">{heroDayLabel} · 5 missed days added · Ends {challengeEndLabel()}</p>
         </div>
         <div className="progress-orb" aria-label={`${percent}% complete`}>
           <span>{percent}%</span>
@@ -728,7 +745,7 @@ function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; s
         <span>{weekdayLabel(selectedDate)}, {shortDateLabel(selectedDate)} · {selectedStatus}</span>
       </Card>
       <div className="grid-75">
-        {Array.from({ length: config.totalDays }, (_, index) => {
+        {Array.from({ length: calendarDays }, (_, index) => {
           const day = index + 1
           const date = dateForDay(day)
           const status = dayStatus(data.daily[date], day)
@@ -739,7 +756,7 @@ function ProgressPage({ data, selectedDate, onSelect }: { data: ChallengeData; s
               onClick={() => onSelect(date)}
               title={`Day ${day} · ${weekdayLabel(date)}, ${shortDateLabel(date)}`}
             >
-              <span className="day-number">Day {day}</span>
+              <span className="day-number">{day > config.totalDays ? `Make-up ${day - config.totalDays}` : `Day ${day}`}</span>
               <span className="day-date">{shortDateLabel(date)}</span>
             </button>
           )
@@ -849,7 +866,7 @@ function buildStats(data: ChallengeData) {
 
 function currentStreak(data: ChallengeData) {
   let streak = 0
-  const lastDay = Math.min(Math.max(getChallengeDay(), 1), config.totalDays)
+  const lastDay = Math.min(Math.max(getChallengeDay(), 1), calendarDays)
   for (let day = lastDay; day >= 1; day -= 1) {
     const entry = data.daily[dateForDay(day)]
     if (!entry || completionPercent(entry) !== 100) break
