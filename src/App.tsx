@@ -76,7 +76,7 @@ const config = {
   tagline: '75 days. Body strong. Brain sharp.',
   startDate: '2026-05-25',
   totalDays: 75,
-  makeUpDays: [10, 11, 12, 13, 14],
+  makeUpDays: [10, 11, 12, 13, 14, 18],
   proteinGoal: 100,
   waterGoalOz: 128,
   workoutMinutesGoal: 45,
@@ -359,7 +359,7 @@ function App() {
         <div>
           <p className="eyebrow"><Sparkles size={16} /> Summer Strong</p>
           <h1>{config.tagline}</h1>
-          <p className="hero-copy">{heroDayLabel} · 5 missed days added · Ends {challengeEndLabel()}</p>
+          <p className="hero-copy">{heroDayLabel} · 6 missed days added · Ends {challengeEndLabel()}</p>
         </div>
         <div className="progress-orb" aria-label={`${percent}% complete`}>
           <span>{percent}%</span>
